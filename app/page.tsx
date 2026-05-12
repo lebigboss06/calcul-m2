@@ -24,6 +24,7 @@ const AUTH_STORAGE_KEY = "m2-authenticated";
 const PASSWORD_STORAGE_KEY = "m2-password";
 
 export default function Home() {
+  const [isStorageReady, setIsStorageReady] = useState(false);
   const [savedPassword, setSavedPassword] = useState("");
   const [createPasswordInput, setCreatePasswordInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
@@ -61,20 +62,38 @@ export default function Home() {
       const parsedRoomsByClient = rawRoomsByClient
         ? (JSON.parse(rawRoomsByClient) as Record<string, Room[]>)
         : {};
-
-      if (Array.isArray(parsedClients)) {
-        setClients(parsedClients);
-      }
+      const safeClients = Array.isArray(parsedClients) ? parsedClients : [];
+      const safeRoomsByClient: Record<string, Room[]> = {};
 
       if (parsedRoomsByClient && typeof parsedRoomsByClient === "object") {
-        setRoomsByClient(parsedRoomsByClient);
+        for (const [clientId, clientRooms] of Object.entries(parsedRoomsByClient)) {
+          if (!Array.isArray(clientRooms)) continue;
+          safeRoomsByClient[clientId] = clientRooms.map((room) => ({
+            id: String(room.id ?? crypto.randomUUID()),
+            name: String(room.name ?? ""),
+            length: Number(room.length ?? 0),
+            width: Number(room.width ?? 0),
+            surface: Number(room.surface ?? 0),
+            photoBase64:
+              typeof room.photoBase64 === "string" ? room.photoBase64 : null,
+          }));
+        }
       }
 
-      if (rawSelectedClient && typeof rawSelectedClient === "string") {
+      setClients(safeClients);
+      setRoomsByClient(safeRoomsByClient);
+
+      const hasSelectedClient =
+        typeof rawSelectedClient === "string" &&
+        safeClients.some((client) => client.id === rawSelectedClient);
+
+      if (hasSelectedClient) {
         setSelectedClientId(rawSelectedClient);
+      } else {
+        setSelectedClientId(safeClients[0]?.id ?? "");
       }
 
-      const noClientData = !rawClients && parsedClients.length === 0;
+      const noClientData = !rawClients && safeClients.length === 0;
       if (noClientData && rawLegacyRooms) {
         const parsedLegacyRooms = JSON.parse(rawLegacyRooms) as Room[];
         if (Array.isArray(parsedLegacyRooms) && parsedLegacyRooms.length > 0) {
@@ -91,23 +110,42 @@ export default function Home() {
       window.localStorage.removeItem(CLIENTS_STORAGE_KEY);
       window.localStorage.removeItem(ROOMS_BY_CLIENT_STORAGE_KEY);
       window.localStorage.removeItem(SELECTED_CLIENT_STORAGE_KEY);
+    } finally {
+      setIsStorageReady(true);
     }
   }, []);
 
   useEffect(() => {
+    if (!isStorageReady) return;
     window.localStorage.setItem(CLIENTS_STORAGE_KEY, JSON.stringify(clients));
-  }, [clients]);
+  }, [clients, isStorageReady]);
 
   useEffect(() => {
+    if (!isStorageReady) return;
     window.localStorage.setItem(
       ROOMS_BY_CLIENT_STORAGE_KEY,
       JSON.stringify(roomsByClient),
     );
-  }, [roomsByClient]);
+  }, [roomsByClient, isStorageReady]);
 
   useEffect(() => {
+    if (!isStorageReady) return;
     window.localStorage.setItem(SELECTED_CLIENT_STORAGE_KEY, selectedClientId);
-  }, [selectedClientId]);
+  }, [selectedClientId, isStorageReady]);
+
+  useEffect(() => {
+    if (!clients.length) {
+      if (selectedClientId) {
+        setSelectedClientId("");
+      }
+      return;
+    }
+
+    const selectedStillExists = clients.some((client) => client.id === selectedClientId);
+    if (!selectedStillExists) {
+      setSelectedClientId(clients[0].id);
+    }
+  }, [clients, selectedClientId]);
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === selectedClientId) ?? null,
@@ -459,6 +497,9 @@ export default function Home() {
             Déconnexion
           </button>
         </div>
+        <p className="mb-6 text-right text-sm text-blue-700">
+          Données sauvegardées automatiquement
+        </p>
 
         {showChangePassword ? (
           <section className="mb-6 rounded-2xl border border-blue-100 bg-white p-5 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)]">
