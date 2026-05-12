@@ -20,8 +20,13 @@ const LEGACY_ROOMS_STORAGE_KEY = "rooms-m2-calculator";
 const CLIENTS_STORAGE_KEY = "clients-m2-calculator";
 const ROOMS_BY_CLIENT_STORAGE_KEY = "rooms-by-client-m2-calculator";
 const SELECTED_CLIENT_STORAGE_KEY = "selected-client-m2-calculator";
+const AUTH_STORAGE_KEY = "m2-authenticated";
+const DEFAULT_PASSWORD = "1234";
 
 export default function Home() {
+  const [passwordInput, setPasswordInput] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [clientName, setClientName] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -31,6 +36,11 @@ export default function Home() {
   const [roomPhotoBase64, setRoomPhotoBase64] = useState<string | null>(null);
   const [roomsByClient, setRoomsByClient] = useState<Record<string, Room[]>>({});
   const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    setIsAuthenticated(storedAuth === "true");
+  }, []);
 
   useEffect(() => {
     const rawClients = window.localStorage.getItem(CLIENTS_STORAGE_KEY);
@@ -202,6 +212,26 @@ export default function Home() {
     setErrorMessage("");
   };
 
+  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (passwordInput === DEFAULT_PASSWORD) {
+      setIsAuthenticated(true);
+      window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
+      setAuthError("");
+      setPasswordInput("");
+      return;
+    }
+
+    setAuthError("Mot de passe incorrect.");
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    setAuthError("");
+  };
+
   const handleAddClient = () => {
     const cleanedClientName = clientName.trim();
 
@@ -261,9 +291,66 @@ export default function Home() {
     setErrorMessage("");
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
+        <main className="mx-auto w-full max-w-md">
+          <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">
+              Connexion
+            </h1>
+            <p className="mt-2 text-sm text-blue-700">
+              Entrez le mot de passe pour accéder au calculateur.
+            </p>
+
+            <form onSubmit={handleLogin} className="mt-6 space-y-4">
+              <div>
+                <label
+                  htmlFor="password"
+                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                >
+                  Mot de passe
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={passwordInput}
+                  onChange={(event) => setPasswordInput(event.target.value)}
+                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                />
+              </div>
+
+              {authError ? (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                  {authError}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700 active:scale-[0.99]"
+              >
+                Entrer
+              </button>
+            </form>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
       <main className="mx-auto w-full max-w-6xl">
+        <div className="mb-4 flex justify-end">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800 shadow-sm transition hover:bg-blue-50"
+          >
+            Déconnexion
+          </button>
+        </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
           <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
             <h1 className="text-3xl font-bold tracking-tight text-blue-900 sm:text-4xl">
