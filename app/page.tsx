@@ -21,12 +21,18 @@ const CLIENTS_STORAGE_KEY = "clients-m2-calculator";
 const ROOMS_BY_CLIENT_STORAGE_KEY = "rooms-by-client-m2-calculator";
 const SELECTED_CLIENT_STORAGE_KEY = "selected-client-m2-calculator";
 const AUTH_STORAGE_KEY = "m2-authenticated";
-const DEFAULT_PASSWORD = "1234";
+const PASSWORD_STORAGE_KEY = "m2-password";
 
 export default function Home() {
+  const [savedPassword, setSavedPassword] = useState("");
+  const [createPasswordInput, setCreatePasswordInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [nextPasswordInput, setNextPasswordInput] = useState("");
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState("");
   const [clientName, setClientName] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -38,8 +44,10 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    const storedPassword = window.localStorage.getItem(PASSWORD_STORAGE_KEY) ?? "";
     const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    setIsAuthenticated(storedAuth === "true");
+    setSavedPassword(storedPassword);
+    setIsAuthenticated(storedAuth === "true" && Boolean(storedPassword));
   }, []);
 
   useEffect(() => {
@@ -212,10 +220,27 @@ export default function Home() {
     setErrorMessage("");
   };
 
+  const handleCreatePassword = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const cleanedPassword = createPasswordInput.trim();
+    if (!cleanedPassword) {
+      setAuthError("Veuillez saisir un mot de passe.");
+      return;
+    }
+
+    window.localStorage.setItem(PASSWORD_STORAGE_KEY, cleanedPassword);
+    window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
+    setSavedPassword(cleanedPassword);
+    setIsAuthenticated(true);
+    setCreatePasswordInput("");
+    setAuthError("");
+  };
+
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (passwordInput === DEFAULT_PASSWORD) {
+    if (passwordInput === savedPassword) {
       setIsAuthenticated(true);
       window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
       setAuthError("");
@@ -230,6 +255,31 @@ export default function Home() {
     setIsAuthenticated(false);
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
     setAuthError("");
+    setShowChangePassword(false);
+    setCurrentPasswordInput("");
+    setNextPasswordInput("");
+    setPasswordChangeMessage("");
+  };
+
+  const handleChangePassword = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (currentPasswordInput !== savedPassword) {
+      setPasswordChangeMessage("Mot de passe actuel incorrect.");
+      return;
+    }
+
+    const cleanedNextPassword = nextPasswordInput.trim();
+    if (!cleanedNextPassword) {
+      setPasswordChangeMessage("Veuillez saisir un nouveau mot de passe.");
+      return;
+    }
+
+    window.localStorage.setItem(PASSWORD_STORAGE_KEY, cleanedNextPassword);
+    setSavedPassword(cleanedNextPassword);
+    setCurrentPasswordInput("");
+    setNextPasswordInput("");
+    setPasswordChangeMessage("Mot de passe modifié avec succès.");
   };
 
   const handleAddClient = () => {
@@ -291,6 +341,54 @@ export default function Home() {
     setErrorMessage("");
   };
 
+  if (!savedPassword) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
+        <main className="mx-auto w-full max-w-md">
+          <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">
+              Créer votre mot de passe
+            </h1>
+            <p className="mt-2 text-sm text-blue-700">
+              Ce mot de passe sera demandé pour accéder au calculateur.
+            </p>
+
+            <form onSubmit={handleCreatePassword} className="mt-6 space-y-4">
+              <div>
+                <label
+                  htmlFor="createPassword"
+                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                >
+                  Nouveau mot de passe
+                </label>
+                <input
+                  id="createPassword"
+                  type="password"
+                  value={createPasswordInput}
+                  onChange={(event) => setCreatePasswordInput(event.target.value)}
+                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                />
+              </div>
+
+              {authError ? (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                  {authError}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700 active:scale-[0.99]"
+              >
+                Enregistrer le mot de passe
+              </button>
+            </form>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
@@ -342,7 +440,17 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
       <main className="mx-auto w-full max-w-6xl">
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setShowChangePassword((prev) => !prev);
+              setPasswordChangeMessage("");
+            }}
+            className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800 shadow-sm transition hover:bg-blue-50"
+          >
+            Changer le mot de passe
+          </button>
           <button
             type="button"
             onClick={handleLogout}
@@ -351,6 +459,49 @@ export default function Home() {
             Déconnexion
           </button>
         </div>
+
+        {showChangePassword ? (
+          <section className="mb-6 rounded-2xl border border-blue-100 bg-white p-5 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)]">
+            <h2 className="text-lg font-semibold text-blue-900">
+              Changer le mot de passe
+            </h2>
+            <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
+              <input
+                type="password"
+                placeholder="Mot de passe actuel"
+                value={currentPasswordInput}
+                onChange={(event) => setCurrentPasswordInput(event.target.value)}
+                className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+              />
+              <input
+                type="password"
+                placeholder="Nouveau mot de passe"
+                value={nextPasswordInput}
+                onChange={(event) => setNextPasswordInput(event.target.value)}
+                className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+              />
+
+              {passwordChangeMessage ? (
+                <p
+                  className={`rounded-lg px-3 py-2 text-sm font-medium ${
+                    passwordChangeMessage.includes("succès")
+                      ? "bg-green-50 text-green-700"
+                      : "bg-red-50 text-red-600"
+                  }`}
+                >
+                  {passwordChangeMessage}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700"
+              >
+                Mettre à jour
+              </button>
+            </form>
+          </section>
+        ) : null}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
           <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
             <h1 className="text-3xl font-bold tracking-tight text-blue-900 sm:text-4xl">
