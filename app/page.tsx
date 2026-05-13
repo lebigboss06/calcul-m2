@@ -1008,7 +1008,7 @@ export default function Home() {
             ALLURE RÉNOVATION
           </p>
         </div>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <div className="fade-in mb-5 flex justify-center">
           <div className="glass-card inline-flex rounded-xl p-1">
             <button
               type="button"
@@ -1033,6 +1033,8 @@ export default function Home() {
               Photos de chantier
             </button>
           </div>
+        </div>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <p className="glass-card rounded-lg px-4 py-2 text-sm font-medium text-blue-50">
             Connecté : {connectedEmail}
           </p>
@@ -1411,7 +1413,7 @@ export default function Home() {
                   type="submit"
                   className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
                 >
-                  Ajouter la photo
+                  Ajouter une photo
                 </button>
               </form>
             </section>
