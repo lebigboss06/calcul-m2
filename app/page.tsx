@@ -31,6 +31,179 @@ type Account = {
 const getUserStorageKey = (email: string, key: string) =>
   `${email.trim().toLowerCase()}::${key}`;
 
+function AnimatedBackdrop() {
+  return (
+    <>
+      <div className="pointer-events-none fixed inset-0 -z-20 bg-[#070b1f]" />
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="aurora aurora-one" />
+        <div className="aurora aurora-two" />
+        <div className="aurora aurora-three" />
+        <div className="grid-overlay" />
+      </div>
+    </>
+  );
+}
+
+function AnimatedStyles() {
+  return (
+    <style jsx global>{`
+      .aurora {
+        position: absolute;
+        border-radius: 9999px;
+        filter: blur(80px);
+        opacity: 0.55;
+        mix-blend-mode: screen;
+        animation: drift 18s ease-in-out infinite;
+      }
+      .aurora-one {
+        width: 40vw;
+        height: 40vw;
+        min-width: 280px;
+        min-height: 280px;
+        background: radial-gradient(circle, #3b82f6 0%, transparent 70%);
+        top: -12%;
+        left: -8%;
+      }
+      .aurora-two {
+        width: 42vw;
+        height: 42vw;
+        min-width: 280px;
+        min-height: 280px;
+        background: radial-gradient(circle, #8b5cf6 0%, transparent 70%);
+        top: 25%;
+        right: -12%;
+        animation-delay: -6s;
+      }
+      .aurora-three {
+        width: 34vw;
+        height: 34vw;
+        min-width: 250px;
+        min-height: 250px;
+        background: radial-gradient(circle, #22d3ee 0%, transparent 68%);
+        bottom: -14%;
+        left: 20%;
+        animation-delay: -12s;
+      }
+      .grid-overlay {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(
+            rgba(148, 163, 184, 0.09) 1px,
+            transparent 1px
+          ),
+          linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+        background-size: 56px 56px;
+        mask-image: radial-gradient(circle at center, black 35%, transparent 100%);
+      }
+      .glass-card {
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.22),
+          rgba(255, 255, 255, 0.08)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        box-shadow: 0 20px 60px -25px rgba(56, 189, 248, 0.45),
+          0 12px 30px -20px rgba(139, 92, 246, 0.45);
+        backdrop-filter: blur(16px);
+      }
+      .hover-lift {
+        transition: transform 350ms ease, box-shadow 350ms ease,
+          border-color 350ms ease;
+      }
+      .hover-lift:hover {
+        transform: translateY(-4px);
+        border-color: rgba(255, 255, 255, 0.4);
+        box-shadow: 0 26px 70px -28px rgba(56, 189, 248, 0.55),
+          0 18px 40px -24px rgba(139, 92, 246, 0.55);
+      }
+      .premium-btn {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(120deg, #2563eb, #7c3aed, #2563eb);
+        background-size: 220% 220%;
+        color: white;
+        transition: transform 220ms ease, box-shadow 220ms ease;
+        animation: gradientShift 5s ease infinite;
+      }
+      .premium-btn::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -130%;
+        width: 55%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.5),
+          transparent
+        );
+        transform: skewX(-25deg);
+      }
+      .premium-btn:hover::before {
+        animation: shine 900ms ease;
+      }
+      .premium-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 18px 35px -18px rgba(59, 130, 246, 0.8);
+      }
+      .fade-in {
+        animation: fadeInUp 700ms ease both;
+      }
+      .fade-in-delay {
+        animation: fadeInUp 850ms ease both;
+      }
+      .soft-input {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+      }
+      .soft-input:focus {
+        border-color: rgba(125, 211, 252, 0.9);
+        box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.22);
+      }
+      @keyframes drift {
+        0%,
+        100% {
+          transform: translate3d(0, 0, 0) scale(1);
+        }
+        35% {
+          transform: translate3d(30px, -28px, 0) scale(1.08);
+        }
+        70% {
+          transform: translate3d(-26px, 24px, 0) scale(0.94);
+        }
+      }
+      @keyframes gradientShift {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+      @keyframes shine {
+        to {
+          left: 160%;
+        }
+      }
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    `}</style>
+  );
+}
+
 export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [createEmailInput, setCreateEmailInput] = useState("");
@@ -455,13 +628,15 @@ export default function Home() {
 
   if (accounts.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 sm:py-10">
+        <AnimatedBackdrop />
+        <AnimatedStyles />
         <main className="mx-auto w-full max-w-md">
-          <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
-            <h1 className="text-3xl font-bold tracking-tight text-blue-900">
+          <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
+            <h1 className="text-3xl font-bold tracking-tight text-white">
               Créer un compte
             </h1>
-            <p className="mt-2 text-sm text-blue-700">
+            <p className="mt-2 text-sm text-blue-100/90">
               Configurez un compte local (email + mot de passe) pour accéder au calculateur.
             </p>
 
@@ -469,7 +644,7 @@ export default function Home() {
               <div>
                 <label
                   htmlFor="createEmail"
-                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                  className="mb-1.5 block text-sm font-medium text-blue-50"
                 >
                   Email
                 </label>
@@ -478,14 +653,14 @@ export default function Home() {
                   type="email"
                   value={createEmailInput}
                   onChange={(event) => setCreateEmailInput(event.target.value)}
-                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="createPassword"
-                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                  className="mb-1.5 block text-sm font-medium text-blue-50"
                 >
                   Mot de passe
                 </label>
@@ -494,19 +669,19 @@ export default function Home() {
                   type="password"
                   value={createPasswordInput}
                   onChange={(event) => setCreatePasswordInput(event.target.value)}
-                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
                 />
               </div>
 
               {authError ? (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
                   {authError}
                 </p>
               ) : null}
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700 active:scale-[0.99]"
+                className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
               >
                 Créer mon compte
               </button>
@@ -519,13 +694,15 @@ export default function Home() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 sm:py-10">
+        <AnimatedBackdrop />
+        <AnimatedStyles />
         <main className="mx-auto w-full max-w-md">
-          <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
-            <h1 className="text-3xl font-bold tracking-tight text-blue-900">
+          <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
+            <h1 className="text-3xl font-bold tracking-tight text-white">
               Connexion
             </h1>
-            <p className="mt-2 text-sm text-blue-700">
+            <p className="mt-2 text-sm text-blue-100/90">
               Connectez-vous avec votre email et votre mot de passe.
             </p>
 
@@ -533,7 +710,7 @@ export default function Home() {
               <div>
                 <label
                   htmlFor="loginEmail"
-                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                  className="mb-1.5 block text-sm font-medium text-blue-50"
                 >
                   Email
                 </label>
@@ -542,14 +719,14 @@ export default function Home() {
                   type="email"
                   value={loginEmailInput}
                   onChange={(event) => setLoginEmailInput(event.target.value)}
-                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="password"
-                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                  className="mb-1.5 block text-sm font-medium text-blue-50"
                 >
                   Mot de passe
                 </label>
@@ -558,11 +735,11 @@ export default function Home() {
                   type="password"
                   value={loginPasswordInput}
                   onChange={(event) => setLoginPasswordInput(event.target.value)}
-                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
                 />
               </div>
 
-              <label className="flex items-center gap-2 text-sm text-blue-800">
+              <label className="flex items-center gap-2 text-sm text-blue-100">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -572,14 +749,14 @@ export default function Home() {
               </label>
 
               {authError ? (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
                   {authError}
                 </p>
               ) : null}
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700 active:scale-[0.99]"
+                className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
               >
                 Se connecter
               </button>
@@ -591,46 +768,48 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
+    <div className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 sm:py-10">
+      <AnimatedBackdrop />
+      <AnimatedStyles />
       <main className="mx-auto w-full max-w-6xl">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <p className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800 shadow-sm">
+          <p className="glass-card rounded-lg px-4 py-2 text-sm font-medium text-blue-50">
             Connecté : {connectedEmail}
           </p>
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800 shadow-sm transition hover:bg-blue-50"
+            className="glass-card hover-lift rounded-lg px-4 py-2 text-sm font-medium text-blue-50"
           >
             Déconnexion
           </button>
         </div>
-        <p className="mb-6 text-right text-sm text-blue-700">
+        <p className="mb-6 text-right text-sm text-blue-100/90">
           Données sauvegardées automatiquement
         </p>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
-          <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
-            <h1 className="text-3xl font-bold tracking-tight text-blue-900 sm:text-4xl">
+          <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
               Calculateur de m²
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-blue-700 sm:text-base">
+            <p className="mt-3 text-sm leading-relaxed text-blue-100/90 sm:text-base">
               Ajoutez chaque pièce pour obtenir la surface totale de votre projet.
             </p>
 
-            <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 sm:p-5">
-              <p className="text-sm font-semibold text-blue-900">Nom du client</p>
+            <div className="mt-6 rounded-2xl border border-white/30 bg-white/10 p-4 backdrop-blur-sm sm:p-5">
+              <p className="text-sm font-semibold text-blue-50">Nom du client</p>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <input
                   type="text"
                   value={clientName}
                   onChange={(event) => setClientName(event.target.value)}
                   placeholder="Ex: M. Dupont"
-                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition placeholder:text-blue-300 focus:border-blue-300 focus:ring-2"
+                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400"
                 />
                 <button
                   type="button"
                   onClick={handleAddClient}
-                  className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700"
+                  className="premium-btn rounded-xl px-4 py-3 text-sm font-semibold"
                 >
                   Ajouter le client
                 </button>
@@ -638,7 +817,7 @@ export default function Home() {
 
               <label
                 htmlFor="clientSelect"
-                className="mt-4 block text-sm font-semibold text-blue-900"
+                className="mt-4 block text-sm font-semibold text-blue-50"
               >
                 Choisir un client
               </label>
@@ -646,7 +825,7 @@ export default function Home() {
                 id="clientSelect"
                 value={selectedClientId}
                 onChange={(event) => setSelectedClientId(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                className="soft-input mt-2 w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
               >
                 <option value="">-- Sélectionner --</option>
                 {clients.map((client) => (
@@ -657,9 +836,9 @@ export default function Home() {
               </select>
 
               <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-blue-800">
+                <p className="text-sm text-blue-100/90">
                   Client sélectionné :{" "}
-                  <span className="font-semibold text-blue-900">
+                  <span className="font-semibold text-white">
                     {selectedClient?.name ?? "Aucun"}
                   </span>
                 </p>
@@ -667,7 +846,7 @@ export default function Home() {
                   type="button"
                   onClick={handleDeleteSelectedClient}
                   disabled={!selectedClientId}
-                  className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-red-200/50 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Supprimer client
                 </button>
@@ -678,18 +857,18 @@ export default function Home() {
               <div>
                 <label
                   htmlFor="roomName"
-                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                  className="mb-1.5 block text-sm font-medium text-blue-50"
                 >
                   Nom de la pièce
                 </label>
                 <input
                   id="roomName"
                   type="text"
-                    disabled={!selectedClientId}
+                  disabled={!selectedClientId}
                   value={roomName}
                   onChange={(event) => setRoomName(event.target.value)}
                   placeholder="Ex: Salon"
-                    className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition placeholder:text-blue-300 focus:border-blue-300 focus:ring-2 disabled:cursor-not-allowed disabled:bg-blue-50/60 disabled:text-blue-400"
+                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
 
@@ -697,7 +876,7 @@ export default function Home() {
                 <div>
                   <label
                     htmlFor="length"
-                    className="mb-1.5 block text-sm font-medium text-blue-900"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
                   >
                     Longueur (m)
                   </label>
@@ -710,14 +889,14 @@ export default function Home() {
                     value={lengthValue}
                     onChange={(event) => setLengthValue(event.target.value)}
                     placeholder="Ex: 4.20"
-                    className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition placeholder:text-blue-300 focus:border-blue-300 focus:ring-2 disabled:cursor-not-allowed disabled:bg-blue-50/60 disabled:text-blue-400"
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="width"
-                    className="mb-1.5 block text-sm font-medium text-blue-900"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
                   >
                     Largeur (m)
                   </label>
@@ -730,13 +909,13 @@ export default function Home() {
                     value={widthValue}
                     onChange={(event) => setWidthValue(event.target.value)}
                     placeholder="Ex: 3.80"
-                    className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition placeholder:text-blue-300 focus:border-blue-300 focus:ring-2 disabled:cursor-not-allowed disabled:bg-blue-50/60 disabled:text-blue-400"
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
               </div>
 
               <div>
-                <p className="mb-1.5 block text-sm font-medium text-blue-900">
+                <p className="mb-1.5 block text-sm font-medium text-blue-50">
                   Photo de la pièce
                 </p>
                 <input
@@ -744,12 +923,13 @@ export default function Home() {
                   accept="image/*"
                   capture="environment"
                   onChange={handlePhotoChange}
+                  className="text-sm text-blue-100 file:mr-3 file:rounded-lg file:border file:border-white/30 file:bg-white/20 file:px-3 file:py-2 file:text-blue-50 file:backdrop-blur-sm"
                 />
                 <button
                   type="button"
                   onClick={openPhotoPicker}
                   disabled={!selectedClientId}
-                  className="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-800 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="glass-card hover-lift mt-3 rounded-xl px-4 py-2 text-sm font-semibold text-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Prendre une photo
                 </button>
@@ -757,20 +937,20 @@ export default function Home() {
                   <img
                     src={roomPhotoBase64}
                     alt="Aperçu de la pièce"
-                    className="mt-3 h-36 w-full rounded-lg border border-blue-100 object-cover sm:h-40"
+                    className="mt-3 h-36 w-full rounded-lg border border-white/35 object-cover sm:h-40"
                   />
                 ) : (
-                  <p className="mt-2 text-sm text-blue-500">Aucune photo</p>
+                  <p className="mt-2 text-sm text-blue-100/80">Aucune photo</p>
                 )}
               </div>
 
-              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              <div className="rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-sm text-blue-50">
                 Formule : {currentLength || 0} × {currentWidth || 0} ={" "}
                 <span className="font-semibold">{currentSurface.toFixed(2)} m²</span>
               </div>
 
               {errorMessage ? (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
                   {errorMessage}
                 </p>
               ) : null}
@@ -778,21 +958,21 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={!selectedClientId}
-                className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700 active:scale-[0.99]"
+                className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Calculer / Ajouter la pièce
               </button>
             </form>
           </section>
 
-          <section className="flex min-h-[420px] flex-col rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
+          <section className="glass-card hover-lift fade-in-delay flex min-h-[420px] flex-col rounded-3xl p-6 sm:p-8">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-2xl font-semibold text-blue-900">Pièces ajoutées</h2>
+              <h2 className="text-2xl font-semibold text-white">Pièces ajoutées</h2>
               <button
                 type="button"
                 onClick={handleClearAll}
                 disabled={rooms.length === 0}
-                className="rounded-lg border border-blue-200 px-3 py-2 text-sm font-medium text-blue-800 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="glass-card hover-lift rounded-lg px-3 py-2 text-sm font-medium text-blue-50 transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Vider tout
               </button>
@@ -800,7 +980,7 @@ export default function Home() {
 
             <div className="flex-1">
               {rooms.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-6 text-sm text-blue-700">
+                <p className="rounded-xl border border-dashed border-white/35 bg-white/10 px-4 py-6 text-sm text-blue-100">
                   Aucune pièce ajoutée pour le moment.
                 </p>
               ) : (
@@ -811,15 +991,15 @@ export default function Home() {
                     return (
                       <li
                         key={room.id}
-                        className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                        className="hover-lift flex flex-col gap-3 rounded-xl border border-white/30 bg-white/15 p-4 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-base font-semibold text-blue-950">
+                          <p className="truncate text-base font-semibold text-white">
                             {room.name}
                           </p>
-                          <p className="text-sm text-blue-700">
+                          <p className="text-sm text-blue-100/90">
                             {room.length} × {room.width} ={" "}
-                            <span className="font-semibold text-blue-900">
+                            <span className="font-semibold text-white">
                               {roomSurface.toFixed(2)} m²
                             </span>
                           </p>
@@ -827,17 +1007,17 @@ export default function Home() {
                             <img
                               src={room.photoBase64}
                               alt={`Photo ${room.name}`}
-                              className="mt-3 h-24 w-full rounded-lg border border-blue-100 object-cover sm:h-20 sm:w-32"
+                              className="mt-3 h-24 w-full rounded-lg border border-white/35 object-cover sm:h-20 sm:w-32"
                             />
                           ) : (
-                            <p className="mt-2 text-sm text-blue-500">Aucune photo</p>
+                            <p className="mt-2 text-sm text-blue-100/75">Aucune photo</p>
                           )}
                         </div>
 
                         <button
                           type="button"
                           onClick={() => handleDeleteRoom(room.id)}
-                          className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                          className="rounded-lg border border-red-200/50 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-100 transition hover:bg-red-500/20"
                         >
                           Supprimer
                         </button>
@@ -848,8 +1028,8 @@ export default function Home() {
               )}
             </div>
 
-            <div className="mt-6 rounded-2xl bg-blue-600 px-4 py-4 text-white">
-              <p className="text-sm uppercase tracking-wide text-blue-100">Total m²</p>
+            <div className="premium-btn mt-6 rounded-2xl px-4 py-4 text-white">
+              <p className="text-sm uppercase tracking-wide text-blue-100/90">Total m²</p>
               <p className="text-3xl font-bold">{totalSurface.toFixed(2)} m²</p>
             </div>
           </section>
