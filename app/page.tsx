@@ -22,6 +22,9 @@ const LEGACY_ROOMS_BY_CLIENT_STORAGE_KEY = "rooms-by-client-m2-calculator";
 const LEGACY_SELECTED_CLIENT_STORAGE_KEY = "selected-client-m2-calculator";
 const ACCOUNTS_STORAGE_KEY = "appAccounts";
 const SESSION_STORAGE_KEY = "appSession";
+const MAX_IMAGE_WIDTH = 900;
+const JPEG_QUALITY = 0.7;
+const MAX_PHOTO_BYTES = 900 * 1024;
 
 type Account = {
   email: string;
@@ -30,6 +33,11 @@ type Account = {
 
 const getUserStorageKey = (email: string, key: string) =>
   `${email.trim().toLowerCase()}::${key}`;
+
+const getDataUrlByteSize = (dataUrl: string) => {
+  const base64Part = dataUrl.split(",")[1] ?? "";
+  return Math.ceil((base64Part.length * 3) / 4);
+};
 
 function AnimatedBackdrop() {
   return (
@@ -415,10 +423,33 @@ export default function Home() {
     return parsedLength * parsedWidth;
   };
 
-  const fileToBase64 = (file: File) =>
+  const compressImageToBase64 = (file: File) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          const ratio = image.width > MAX_IMAGE_WIDTH ? MAX_IMAGE_WIDTH / image.width : 1;
+          const targetWidth = Math.max(1, Math.round(image.width * ratio));
+          const targetHeight = Math.max(1, Math.round(image.height * ratio));
+
+          const canvas = document.createElement("canvas");
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+
+          const context = canvas.getContext("2d");
+          if (!context) {
+            reject(new Error("Impossible de préparer la compression de la photo."));
+            return;
+          }
+
+          context.drawImage(image, 0, 0, targetWidth, targetHeight);
+          const compressedBase64 = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+          resolve(compressedBase64);
+        };
+        image.onerror = () => reject(new Error("Photo invalide."));
+        image.src = String(reader.result);
+      };
       reader.onerror = () => reject(new Error("Impossible de lire la photo."));
       reader.readAsDataURL(file);
     });
@@ -431,11 +462,25 @@ export default function Home() {
     }
 
     try {
-      const base64Image = await fileToBase64(selectedFile);
-      setRoomPhotoBase64(base64Image);
+      if (!selectedFile.type.startsWith("image/")) {
+        throw new Error("Veuillez sélectionner une image.");
+      }
+
+      const compressedBase64 = await compressImageToBase64(selectedFile);
+      if (getDataUrlByteSize(compressedBase64) > MAX_PHOTO_BYTES) {
+        throw new Error(
+          "Photo trop lourde après compression. Choisissez une image plus légère.",
+        );
+      }
+
+      setRoomPhotoBase64(compressedBase64);
       setErrorMessage("");
-    } catch {
-      setErrorMessage("La photo n'a pas pu être chargée.");
+    } catch (error) {
+      const fallbackMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : "La photo n'a pas pu être chargée. La pièce sera ajoutée sans photo.";
+      setErrorMessage(fallbackMessage);
       setRoomPhotoBase64(null);
     } finally {
       event.target.value = "";
