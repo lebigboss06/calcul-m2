@@ -173,6 +173,15 @@ function AnimatedStyles() {
         border-color: rgba(125, 211, 252, 0.9);
         box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.22);
       }
+      .zoomable-thumb {
+        cursor: zoom-in;
+      }
+      .photo-modal-overlay {
+        animation: overlayIn 220ms ease-out;
+      }
+      .photo-modal-card {
+        animation: modalIn 260ms ease-out;
+      }
       @keyframes drift {
         0%,
         100% {
@@ -220,6 +229,24 @@ function AnimatedStyles() {
           transform: translateY(-2px);
         }
       }
+      @keyframes overlayIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes modalIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
     `}</style>
   );
 }
@@ -242,6 +269,9 @@ export default function Home() {
   const [lengthValue, setLengthValue] = useState("");
   const [widthValue, setWidthValue] = useState("");
   const [roomPhotoBase64, setRoomPhotoBase64] = useState<string | null>(null);
+  const [zoomedPhoto, setZoomedPhoto] = useState<{ src: string; name: string } | null>(
+    null,
+  );
   const [roomsByClient, setRoomsByClient] = useState<Record<string, Room[]>>({});
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -409,6 +439,19 @@ export default function Home() {
       setSelectedClientId(clients[0].id);
     }
   }, [clients, selectedClientId]);
+
+  useEffect(() => {
+    if (!zoomedPhoto) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setZoomedPhoto(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [zoomedPhoto]);
 
   const selectedClient = useMemo(
     () => clients.find((client) => client.id === selectedClientId) ?? null,
@@ -1067,11 +1110,19 @@ export default function Home() {
                             </span>
                           </p>
                           {room.photoBase64 ? (
-                            <img
-                              src={room.photoBase64}
-                              alt={`Photo ${room.name}`}
-                              className="mt-3 h-24 w-full rounded-lg border border-white/35 object-cover sm:h-20 sm:w-32"
-                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setZoomedPhoto({ src: room.photoBase64 ?? "", name: room.name })
+                              }
+                              className="mt-3"
+                            >
+                              <img
+                                src={room.photoBase64}
+                                alt={`Photo ${room.name}`}
+                                className="zoomable-thumb h-24 w-full rounded-lg border border-white/35 object-cover sm:h-20 sm:w-32"
+                              />
+                            </button>
                           ) : (
                             <p className="mt-2 text-sm text-blue-100/75">Aucune photo</p>
                           )}
@@ -1098,6 +1149,32 @@ export default function Home() {
           </section>
         </div>
       </main>
+
+      {zoomedPhoto ? (
+        <div
+          className="photo-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setZoomedPhoto(null)}
+        >
+          <div
+            className="photo-modal-card glass-card relative w-full max-w-4xl rounded-2xl border border-white/35 bg-white/10 p-3 backdrop-blur-xl sm:p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setZoomedPhoto(null)}
+              className="absolute right-3 top-3 rounded-full border border-white/40 bg-black/25 px-3 py-1 text-lg font-semibold text-white transition hover:bg-black/40"
+              aria-label="Fermer l'image"
+            >
+              ×
+            </button>
+            <img
+              src={zoomedPhoto.src}
+              alt={`Photo ${zoomedPhoto.name}`}
+              className="h-auto max-h-[80vh] w-full rounded-xl object-contain"
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
