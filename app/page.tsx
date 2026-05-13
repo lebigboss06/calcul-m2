@@ -22,6 +22,7 @@ type SitePhoto = {
   note: string;
   clientId: string;
   photoBase64: string;
+  thumbnailBase64?: string;
   createdAt: string;
 };
 
@@ -31,9 +32,14 @@ const LEGACY_ROOMS_BY_CLIENT_STORAGE_KEY = "rooms-by-client-m2-calculator";
 const LEGACY_SELECTED_CLIENT_STORAGE_KEY = "selected-client-m2-calculator";
 const ACCOUNTS_STORAGE_KEY = "appAccounts";
 const SESSION_STORAGE_KEY = "appSession";
-const MAX_IMAGE_WIDTH = 900;
-const JPEG_QUALITY = 0.7;
-const MAX_PHOTO_BYTES = 900 * 1024;
+const ROOM_MAX_IMAGE_WIDTH = 900;
+const ROOM_JPEG_QUALITY = 0.7;
+const ROOM_MAX_PHOTO_BYTES = 900 * 1024;
+const SITE_MAX_IMAGE_WIDTH = 1600;
+const SITE_JPEG_QUALITY = 0.9;
+const SITE_MAX_PHOTO_BYTES = 2_300 * 1024;
+const SITE_THUMB_MAX_WIDTH = 420;
+const SITE_THUMB_JPEG_QUALITY = 0.65;
 
 type Account = {
   email: string;
@@ -283,6 +289,9 @@ export default function Home() {
     null,
   );
   const [sitePhotoBase64, setSitePhotoBase64] = useState<string | null>(null);
+  const [sitePhotoThumbnailBase64, setSitePhotoThumbnailBase64] = useState<
+    string | null
+  >(null);
   const [sitePhotoTitle, setSitePhotoTitle] = useState("");
   const [sitePhotoNote, setSitePhotoNote] = useState("");
   const [sitePhotoClientId, setSitePhotoClientId] = useState("");
@@ -385,6 +394,10 @@ export default function Home() {
               note: String(photo.note ?? ""),
               clientId: String(photo.clientId ?? ""),
               photoBase64: String(photo.photoBase64),
+              thumbnailBase64:
+                typeof photo.thumbnailBase64 === "string"
+                  ? photo.thumbnailBase64
+                  : String(photo.photoBase64),
               createdAt: String(photo.createdAt ?? new Date().toISOString()),
             }))
         : [];
@@ -533,13 +546,17 @@ export default function Home() {
     return parsedLength * parsedWidth;
   };
 
-  const compressImageToBase64 = (file: File) =>
+  const compressImageToBase64 = (
+    file: File,
+    targetMaxWidth: number,
+    targetJpegQuality: number,
+  ) =>
     new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const image = new Image();
         image.onload = () => {
-          const ratio = image.width > MAX_IMAGE_WIDTH ? MAX_IMAGE_WIDTH / image.width : 1;
+          const ratio = image.width > targetMaxWidth ? targetMaxWidth / image.width : 1;
           const targetWidth = Math.max(1, Math.round(image.width * ratio));
           const targetHeight = Math.max(1, Math.round(image.height * ratio));
 
@@ -554,7 +571,7 @@ export default function Home() {
           }
 
           context.drawImage(image, 0, 0, targetWidth, targetHeight);
-          const compressedBase64 = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+          const compressedBase64 = canvas.toDataURL("image/jpeg", targetJpegQuality);
           resolve(compressedBase64);
         };
         image.onerror = () => reject(new Error("Photo invalide."));
@@ -576,8 +593,12 @@ export default function Home() {
         throw new Error("Veuillez sélectionner une image.");
       }
 
-      const compressedBase64 = await compressImageToBase64(selectedFile);
-      if (getDataUrlByteSize(compressedBase64) > MAX_PHOTO_BYTES) {
+      const compressedBase64 = await compressImageToBase64(
+        selectedFile,
+        ROOM_MAX_IMAGE_WIDTH,
+        ROOM_JPEG_QUALITY,
+      );
+      if (getDataUrlByteSize(compressedBase64) > ROOM_MAX_PHOTO_BYTES) {
         throw new Error(
           "Photo trop lourde après compression. Choisissez une image plus légère.",
         );
@@ -606,6 +627,7 @@ export default function Home() {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) {
       setSitePhotoBase64(null);
+      setSitePhotoThumbnailBase64(null);
       return;
     }
 
@@ -614,14 +636,22 @@ export default function Home() {
         throw new Error("Veuillez sélectionner une image.");
       }
 
-      const compressedBase64 = await compressImageToBase64(selectedFile);
-      if (getDataUrlByteSize(compressedBase64) > MAX_PHOTO_BYTES) {
-        throw new Error(
-          "Photo trop lourde après compression. Choisissez une image plus légère.",
-        );
+      const highQualityBase64 = await compressImageToBase64(
+        selectedFile,
+        SITE_MAX_IMAGE_WIDTH,
+        SITE_JPEG_QUALITY,
+      );
+      if (getDataUrlByteSize(highQualityBase64) > SITE_MAX_PHOTO_BYTES) {
+        throw new Error("Photo trop lourde, choisissez une image plus légère");
       }
+      const thumbnailBase64 = await compressImageToBase64(
+        selectedFile,
+        SITE_THUMB_MAX_WIDTH,
+        SITE_THUMB_JPEG_QUALITY,
+      );
 
-      setSitePhotoBase64(compressedBase64);
+      setSitePhotoBase64(highQualityBase64);
+      setSitePhotoThumbnailBase64(thumbnailBase64);
       setSitePhotoError("");
     } catch (error) {
       const fallbackMessage =
@@ -630,6 +660,7 @@ export default function Home() {
           : "La photo n'a pas pu être chargée.";
       setSitePhotoError(fallbackMessage);
       setSitePhotoBase64(null);
+      setSitePhotoThumbnailBase64(null);
     } finally {
       event.target.value = "";
     }
@@ -842,6 +873,7 @@ export default function Home() {
       note: cleanedNote,
       clientId: sitePhotoClientId,
       photoBase64: sitePhotoBase64,
+      thumbnailBase64: sitePhotoThumbnailBase64 ?? sitePhotoBase64,
       createdAt: new Date().toISOString(),
     };
 
@@ -849,6 +881,7 @@ export default function Home() {
     setSitePhotoTitle("");
     setSitePhotoNote("");
     setSitePhotoBase64(null);
+    setSitePhotoThumbnailBase64(null);
     setSitePhotoError("");
   };
 
@@ -1447,8 +1480,10 @@ export default function Home() {
                           className="w-full"
                         >
                           <img
-                            src={photo.photoBase64}
+                            src={photo.thumbnailBase64 ?? photo.photoBase64}
                             alt={photo.title}
+                            loading="lazy"
+                            decoding="async"
                             className="zoomable-thumb h-36 w-full rounded-lg border border-white/35 object-cover"
                           />
                         </button>
