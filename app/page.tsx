@@ -829,6 +829,12 @@ export default function Home() {
       <AnimatedBackdrop />
       <AnimatedStyles />
       <main className="mx-auto w-full max-w-6xl">
+        <div className="fade-in mb-5 flex justify-center">
+          <p className="subtle-float inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.22em] text-white shadow-[0_0_25px_rgba(125,211,252,0.35)] backdrop-blur-sm">
+            <span aria-hidden="true">🏠</span>
+            ALLURE RÉNOVATION
+          </p>
+        </div>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <p className="glass-card rounded-lg px-4 py-2 text-sm font-medium text-blue-50">
             Connecté : {connectedEmail}
@@ -846,10 +852,6 @@ export default function Home() {
         </p>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
           <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
-            <p className="subtle-float mb-3 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-3 py-1 text-center text-xs font-semibold uppercase tracking-[0.2em] text-blue-100">
-              <span aria-hidden="true">🏠</span>
-              Allure Rénovation
-            </p>
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
               Calculateur de m²
             </h1>
