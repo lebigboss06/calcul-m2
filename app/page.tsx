@@ -162,6 +162,9 @@ function AnimatedStyles() {
       .fade-in-delay {
         animation: fadeInUp 850ms ease both;
       }
+      .subtle-float {
+        animation: subtleFloat 4s ease-in-out infinite;
+      }
       .soft-input {
         background: rgba(255, 255, 255, 0.7);
         border: 1px solid rgba(255, 255, 255, 0.35);
@@ -206,6 +209,15 @@ function AnimatedStyles() {
         to {
           opacity: 1;
           transform: translateY(0);
+        }
+      }
+      @keyframes subtleFloat {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-2px);
         }
       }
     `}</style>
@@ -834,6 +846,10 @@ export default function Home() {
         </p>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
           <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
+            <p className="subtle-float mb-3 inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-3 py-1 text-center text-xs font-semibold uppercase tracking-[0.2em] text-blue-100">
+              <span aria-hidden="true">🏠</span>
+              Allure Rénovation
+            </p>
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
               Calculateur de m²
             </h1>
