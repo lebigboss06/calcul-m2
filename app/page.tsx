@@ -17,23 +17,31 @@ type Client = {
 };
 
 const LEGACY_ROOMS_STORAGE_KEY = "rooms-m2-calculator";
-const CLIENTS_STORAGE_KEY = "clients-m2-calculator";
-const ROOMS_BY_CLIENT_STORAGE_KEY = "rooms-by-client-m2-calculator";
-const SELECTED_CLIENT_STORAGE_KEY = "selected-client-m2-calculator";
-const AUTH_STORAGE_KEY = "m2-authenticated";
-const PASSWORD_STORAGE_KEY = "m2-password";
+const LEGACY_CLIENTS_STORAGE_KEY = "clients-m2-calculator";
+const LEGACY_ROOMS_BY_CLIENT_STORAGE_KEY = "rooms-by-client-m2-calculator";
+const LEGACY_SELECTED_CLIENT_STORAGE_KEY = "selected-client-m2-calculator";
+const ACCOUNTS_STORAGE_KEY = "appAccounts";
+const SESSION_STORAGE_KEY = "appSession";
+
+type Account = {
+  email: string;
+  password: string;
+};
+
+const getUserStorageKey = (email: string, key: string) =>
+  `${email.trim().toLowerCase()}::${key}`;
 
 export default function Home() {
-  const [isStorageReady, setIsStorageReady] = useState(false);
-  const [savedPassword, setSavedPassword] = useState("");
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [createEmailInput, setCreateEmailInput] = useState("");
   const [createPasswordInput, setCreatePasswordInput] = useState("");
-  const [passwordInput, setPasswordInput] = useState("");
+  const [loginEmailInput, setLoginEmailInput] = useState("");
+  const [loginPasswordInput, setLoginPasswordInput] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [connectedEmail, setConnectedEmail] = useState("");
   const [authError, setAuthError] = useState("");
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
-  const [nextPasswordInput, setNextPasswordInput] = useState("");
-  const [passwordChangeMessage, setPasswordChangeMessage] = useState("");
+  const [isUserDataReady, setIsUserDataReady] = useState(false);
   const [clientName, setClientName] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClientId, setSelectedClientId] = useState("");
@@ -45,16 +53,70 @@ export default function Home() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const storedPassword = window.localStorage.getItem(PASSWORD_STORAGE_KEY) ?? "";
-    const storedAuth = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    setSavedPassword(storedPassword);
-    setIsAuthenticated(storedAuth === "true" && Boolean(storedPassword));
+    const rawAccounts = window.localStorage.getItem(ACCOUNTS_STORAGE_KEY);
+    let parsedAccounts: Account[] = [];
+
+    try {
+      const rawParsed = rawAccounts ? (JSON.parse(rawAccounts) as Account[]) : [];
+      parsedAccounts = Array.isArray(rawParsed)
+        ? rawParsed
+            .filter(
+              (account) =>
+                typeof account?.email === "string" &&
+                typeof account?.password === "string",
+            )
+            .map((account) => ({
+              email: account.email.trim().toLowerCase(),
+              password: account.password,
+            }))
+        : [];
+    } catch {
+      parsedAccounts = [];
+    }
+
+    setAccounts(parsedAccounts);
+
+    const localSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    const browserSession = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const rawSession = localSession ?? browserSession;
+
+    if (!rawSession) return;
+
+    try {
+      const parsedSession = JSON.parse(rawSession) as { email?: string };
+      const sessionEmail = parsedSession?.email?.trim().toLowerCase();
+      if (
+        sessionEmail &&
+        parsedAccounts.some((account) => account.email === sessionEmail)
+      ) {
+        setConnectedEmail(sessionEmail);
+        setIsAuthenticated(true);
+      }
+    } catch {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
   }, []);
 
   useEffect(() => {
-    const rawClients = window.localStorage.getItem(CLIENTS_STORAGE_KEY);
-    const rawRoomsByClient = window.localStorage.getItem(ROOMS_BY_CLIENT_STORAGE_KEY);
-    const rawSelectedClient = window.localStorage.getItem(SELECTED_CLIENT_STORAGE_KEY);
+    if (!isAuthenticated || !connectedEmail) {
+      setClients([]);
+      setRoomsByClient({});
+      setSelectedClientId("");
+      setIsUserDataReady(false);
+      return;
+    }
+
+    setIsUserDataReady(false);
+    const rawClients = window.localStorage.getItem(
+      getUserStorageKey(connectedEmail, "clients"),
+    );
+    const rawRoomsByClient = window.localStorage.getItem(
+      getUserStorageKey(connectedEmail, "roomsByClient"),
+    );
+    const rawSelectedClient = window.localStorage.getItem(
+      getUserStorageKey(connectedEmail, "selectedClientId"),
+    );
     const rawLegacyRooms = window.localStorage.getItem(LEGACY_ROOMS_STORAGE_KEY);
 
     try {
@@ -107,31 +169,39 @@ export default function Home() {
         }
       }
     } catch {
-      window.localStorage.removeItem(CLIENTS_STORAGE_KEY);
-      window.localStorage.removeItem(ROOMS_BY_CLIENT_STORAGE_KEY);
-      window.localStorage.removeItem(SELECTED_CLIENT_STORAGE_KEY);
+      window.localStorage.removeItem(getUserStorageKey(connectedEmail, "clients"));
+      window.localStorage.removeItem(getUserStorageKey(connectedEmail, "roomsByClient"));
+      window.localStorage.removeItem(
+        getUserStorageKey(connectedEmail, "selectedClientId"),
+      );
     } finally {
-      setIsStorageReady(true);
+      setIsUserDataReady(true);
     }
-  }, []);
+  }, [isAuthenticated, connectedEmail]);
 
   useEffect(() => {
-    if (!isStorageReady) return;
-    window.localStorage.setItem(CLIENTS_STORAGE_KEY, JSON.stringify(clients));
-  }, [clients, isStorageReady]);
-
-  useEffect(() => {
-    if (!isStorageReady) return;
+    if (!isAuthenticated || !connectedEmail || !isUserDataReady) return;
     window.localStorage.setItem(
-      ROOMS_BY_CLIENT_STORAGE_KEY,
+      getUserStorageKey(connectedEmail, "clients"),
+      JSON.stringify(clients),
+    );
+  }, [clients, isAuthenticated, connectedEmail, isUserDataReady]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !connectedEmail || !isUserDataReady) return;
+    window.localStorage.setItem(
+      getUserStorageKey(connectedEmail, "roomsByClient"),
       JSON.stringify(roomsByClient),
     );
-  }, [roomsByClient, isStorageReady]);
+  }, [roomsByClient, isAuthenticated, connectedEmail, isUserDataReady]);
 
   useEffect(() => {
-    if (!isStorageReady) return;
-    window.localStorage.setItem(SELECTED_CLIENT_STORAGE_KEY, selectedClientId);
-  }, [selectedClientId, isStorageReady]);
+    if (!isAuthenticated || !connectedEmail || !isUserDataReady) return;
+    window.localStorage.setItem(
+      getUserStorageKey(connectedEmail, "selectedClientId"),
+      selectedClientId,
+    );
+  }, [selectedClientId, isAuthenticated, connectedEmail, isUserDataReady]);
 
   useEffect(() => {
     if (!clients.length) {
@@ -258,66 +328,70 @@ export default function Home() {
     setErrorMessage("");
   };
 
-  const handleCreatePassword = (event: FormEvent<HTMLFormElement>) => {
+  const handleCreateAccount = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const cleanedPassword = createPasswordInput.trim();
+    const cleanedEmail = createEmailInput.trim().toLowerCase();
+    const cleanedPassword = createPasswordInput;
+
+    if (!cleanedEmail || !cleanedEmail.includes("@")) {
+      setAuthError("Veuillez saisir un email valide.");
+      return;
+    }
     if (!cleanedPassword) {
       setAuthError("Veuillez saisir un mot de passe.");
       return;
     }
+    if (accounts.some((account) => account.email === cleanedEmail)) {
+      setAuthError("Un compte existe déjà avec cet email.");
+      return;
+    }
 
-    window.localStorage.setItem(PASSWORD_STORAGE_KEY, cleanedPassword);
-    window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
-    setSavedPassword(cleanedPassword);
-    setIsAuthenticated(true);
+    const nextAccounts = [...accounts, { email: cleanedEmail, password: cleanedPassword }];
+    setAccounts(nextAccounts);
+    window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
+    setCreateEmailInput("");
     setCreatePasswordInput("");
-    setAuthError("");
+    setLoginEmailInput(cleanedEmail);
+    setLoginPasswordInput("");
+    setAuthError("Compte créé. Connectez-vous.");
   };
 
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (passwordInput === savedPassword) {
-      setIsAuthenticated(true);
-      window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
-      setAuthError("");
-      setPasswordInput("");
+    const cleanedEmail = loginEmailInput.trim().toLowerCase();
+    const matchedAccount = accounts.find(
+      (account) =>
+        account.email === cleanedEmail && account.password === loginPasswordInput,
+    );
+
+    if (!matchedAccount) {
+      setAuthError("Email ou mot de passe incorrect.");
       return;
     }
 
-    setAuthError("Mot de passe incorrect.");
+    setConnectedEmail(matchedAccount.email);
+    setIsAuthenticated(true);
+    setAuthError("");
+    setLoginPasswordInput("");
+
+    const sessionPayload = JSON.stringify({ email: matchedAccount.email });
+    if (rememberMe) {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, sessionPayload);
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    } else {
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionPayload);
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    setConnectedEmail("");
     setAuthError("");
-    setShowChangePassword(false);
-    setCurrentPasswordInput("");
-    setNextPasswordInput("");
-    setPasswordChangeMessage("");
-  };
-
-  const handleChangePassword = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (currentPasswordInput !== savedPassword) {
-      setPasswordChangeMessage("Mot de passe actuel incorrect.");
-      return;
-    }
-
-    const cleanedNextPassword = nextPasswordInput.trim();
-    if (!cleanedNextPassword) {
-      setPasswordChangeMessage("Veuillez saisir un nouveau mot de passe.");
-      return;
-    }
-
-    window.localStorage.setItem(PASSWORD_STORAGE_KEY, cleanedNextPassword);
-    setSavedPassword(cleanedNextPassword);
-    setCurrentPasswordInput("");
-    setNextPasswordInput("");
-    setPasswordChangeMessage("Mot de passe modifié avec succès.");
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
   };
 
   const handleAddClient = () => {
@@ -379,25 +453,41 @@ export default function Home() {
     setErrorMessage("");
   };
 
-  if (!savedPassword) {
+  if (accounts.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
         <main className="mx-auto w-full max-w-md">
           <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
             <h1 className="text-3xl font-bold tracking-tight text-blue-900">
-              Créer votre mot de passe
+              Créer un compte
             </h1>
             <p className="mt-2 text-sm text-blue-700">
-              Ce mot de passe sera demandé pour accéder au calculateur.
+              Configurez un compte local (email + mot de passe) pour accéder au calculateur.
             </p>
 
-            <form onSubmit={handleCreatePassword} className="mt-6 space-y-4">
+            <form onSubmit={handleCreateAccount} className="mt-6 space-y-4">
+              <div>
+                <label
+                  htmlFor="createEmail"
+                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                >
+                  Email
+                </label>
+                <input
+                  id="createEmail"
+                  type="email"
+                  value={createEmailInput}
+                  onChange={(event) => setCreateEmailInput(event.target.value)}
+                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                />
+              </div>
+
               <div>
                 <label
                   htmlFor="createPassword"
                   className="mb-1.5 block text-sm font-medium text-blue-900"
                 >
-                  Nouveau mot de passe
+                  Mot de passe
                 </label>
                 <input
                   id="createPassword"
@@ -418,7 +508,7 @@ export default function Home() {
                 type="submit"
                 className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700 active:scale-[0.99]"
               >
-                Enregistrer le mot de passe
+                Créer mon compte
               </button>
             </form>
           </section>
@@ -436,10 +526,26 @@ export default function Home() {
               Connexion
             </h1>
             <p className="mt-2 text-sm text-blue-700">
-              Entrez le mot de passe pour accéder au calculateur.
+              Connectez-vous avec votre email et votre mot de passe.
             </p>
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
+              <div>
+                <label
+                  htmlFor="loginEmail"
+                  className="mb-1.5 block text-sm font-medium text-blue-900"
+                >
+                  Email
+                </label>
+                <input
+                  id="loginEmail"
+                  type="email"
+                  value={loginEmailInput}
+                  onChange={(event) => setLoginEmailInput(event.target.value)}
+                  className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
+                />
+              </div>
+
               <div>
                 <label
                   htmlFor="password"
@@ -450,11 +556,20 @@ export default function Home() {
                 <input
                   id="password"
                   type="password"
-                  value={passwordInput}
-                  onChange={(event) => setPasswordInput(event.target.value)}
+                  value={loginPasswordInput}
+                  onChange={(event) => setLoginPasswordInput(event.target.value)}
                   className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
                 />
               </div>
+
+              <label className="flex items-center gap-2 text-sm text-blue-800">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                />
+                Se souvenir de moi
+              </label>
 
               {authError ? (
                 <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
@@ -466,7 +581,7 @@ export default function Home() {
                 type="submit"
                 className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700 active:scale-[0.99]"
               >
-                Entrer
+                Se connecter
               </button>
             </form>
           </section>
@@ -479,16 +594,9 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 px-4 py-8 sm:px-6 sm:py-10">
       <main className="mx-auto w-full max-w-6xl">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          <button
-            type="button"
-            onClick={() => {
-              setShowChangePassword((prev) => !prev);
-              setPasswordChangeMessage("");
-            }}
-            className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800 shadow-sm transition hover:bg-blue-50"
-          >
-            Changer le mot de passe
-          </button>
+          <p className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-800 shadow-sm">
+            Connecté : {connectedEmail}
+          </p>
           <button
             type="button"
             onClick={handleLogout}
@@ -500,49 +608,6 @@ export default function Home() {
         <p className="mb-6 text-right text-sm text-blue-700">
           Données sauvegardées automatiquement
         </p>
-
-        {showChangePassword ? (
-          <section className="mb-6 rounded-2xl border border-blue-100 bg-white p-5 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)]">
-            <h2 className="text-lg font-semibold text-blue-900">
-              Changer le mot de passe
-            </h2>
-            <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
-              <input
-                type="password"
-                placeholder="Mot de passe actuel"
-                value={currentPasswordInput}
-                onChange={(event) => setCurrentPasswordInput(event.target.value)}
-                className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
-              />
-              <input
-                type="password"
-                placeholder="Nouveau mot de passe"
-                value={nextPasswordInput}
-                onChange={(event) => setNextPasswordInput(event.target.value)}
-                className="w-full rounded-xl border border-blue-200 bg-white px-4 py-3 text-blue-950 outline-none ring-blue-400/80 transition focus:border-blue-300 focus:ring-2"
-              />
-
-              {passwordChangeMessage ? (
-                <p
-                  className={`rounded-lg px-3 py-2 text-sm font-medium ${
-                    passwordChangeMessage.includes("succès")
-                      ? "bg-green-50 text-green-700"
-                      : "bg-red-50 text-red-600"
-                  }`}
-                >
-                  {passwordChangeMessage}
-                </p>
-              ) : null}
-
-              <button
-                type="submit"
-                className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-md shadow-blue-300/40 transition hover:bg-blue-700"
-              >
-                Mettre à jour
-              </button>
-            </form>
-          </section>
-        ) : null}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
           <section className="rounded-3xl border border-blue-100 bg-white p-6 shadow-[0_12px_40px_-20px_rgba(37,99,235,0.45)] sm:p-8">
             <h1 className="text-3xl font-bold tracking-tight text-blue-900 sm:text-4xl">
