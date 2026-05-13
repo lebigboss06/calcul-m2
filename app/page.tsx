@@ -16,6 +16,15 @@ type Client = {
   name: string;
 };
 
+type SitePhoto = {
+  id: string;
+  title: string;
+  note: string;
+  clientId: string;
+  photoBase64: string;
+  createdAt: string;
+};
+
 const LEGACY_ROOMS_STORAGE_KEY = "rooms-m2-calculator";
 const LEGACY_CLIENTS_STORAGE_KEY = "clients-m2-calculator";
 const LEGACY_ROOMS_BY_CLIENT_STORAGE_KEY = "rooms-by-client-m2-calculator";
@@ -252,6 +261,7 @@ function AnimatedStyles() {
 }
 
 export default function Home() {
+  const [activeView, setActiveView] = useState<"calculator" | "sitePhotos">("calculator");
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [createEmailInput, setCreateEmailInput] = useState("");
   const [createPasswordInput, setCreatePasswordInput] = useState("");
@@ -272,7 +282,13 @@ export default function Home() {
   const [zoomedPhoto, setZoomedPhoto] = useState<{ src: string; name: string } | null>(
     null,
   );
+  const [sitePhotoBase64, setSitePhotoBase64] = useState<string | null>(null);
+  const [sitePhotoTitle, setSitePhotoTitle] = useState("");
+  const [sitePhotoNote, setSitePhotoNote] = useState("");
+  const [sitePhotoClientId, setSitePhotoClientId] = useState("");
+  const [sitePhotoError, setSitePhotoError] = useState("");
   const [roomsByClient, setRoomsByClient] = useState<Record<string, Room[]>>({});
+  const [sitePhotos, setSitePhotos] = useState<SitePhoto[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -325,6 +341,7 @@ export default function Home() {
     if (!isAuthenticated || !connectedEmail) {
       setClients([]);
       setRoomsByClient({});
+      setSitePhotos([]);
       setSelectedClientId("");
       setIsUserDataReady(false);
       return;
@@ -340,6 +357,9 @@ export default function Home() {
     const rawSelectedClient = window.localStorage.getItem(
       getUserStorageKey(connectedEmail, "selectedClientId"),
     );
+    const rawSitePhotos = window.localStorage.getItem(
+      getUserStorageKey(connectedEmail, "sitePhotos"),
+    );
     const rawLegacyRooms = window.localStorage.getItem(LEGACY_ROOMS_STORAGE_KEY);
 
     try {
@@ -347,8 +367,27 @@ export default function Home() {
       const parsedRoomsByClient = rawRoomsByClient
         ? (JSON.parse(rawRoomsByClient) as Record<string, Room[]>)
         : {};
+      const parsedSitePhotos = rawSitePhotos
+        ? (JSON.parse(rawSitePhotos) as SitePhoto[])
+        : [];
       const safeClients = Array.isArray(parsedClients) ? parsedClients : [];
       const safeRoomsByClient: Record<string, Room[]> = {};
+      const safeSitePhotos = Array.isArray(parsedSitePhotos)
+        ? parsedSitePhotos
+            .filter(
+              (photo) =>
+                typeof photo?.id === "string" &&
+                typeof photo?.photoBase64 === "string",
+            )
+            .map((photo) => ({
+              id: String(photo.id),
+              title: String(photo.title ?? ""),
+              note: String(photo.note ?? ""),
+              clientId: String(photo.clientId ?? ""),
+              photoBase64: String(photo.photoBase64),
+              createdAt: String(photo.createdAt ?? new Date().toISOString()),
+            }))
+        : [];
 
       if (parsedRoomsByClient && typeof parsedRoomsByClient === "object") {
         for (const [clientId, clientRooms] of Object.entries(parsedRoomsByClient)) {
@@ -367,6 +406,7 @@ export default function Home() {
 
       setClients(safeClients);
       setRoomsByClient(safeRoomsByClient);
+      setSitePhotos(safeSitePhotos);
 
       const hasSelectedClient =
         typeof rawSelectedClient === "string" &&
@@ -397,6 +437,7 @@ export default function Home() {
       window.localStorage.removeItem(
         getUserStorageKey(connectedEmail, "selectedClientId"),
       );
+      window.localStorage.removeItem(getUserStorageKey(connectedEmail, "sitePhotos"));
     } finally {
       setIsUserDataReady(true);
     }
@@ -427,6 +468,14 @@ export default function Home() {
   }, [selectedClientId, isAuthenticated, connectedEmail, isUserDataReady]);
 
   useEffect(() => {
+    if (!isAuthenticated || !connectedEmail || !isUserDataReady) return;
+    window.localStorage.setItem(
+      getUserStorageKey(connectedEmail, "sitePhotos"),
+      JSON.stringify(sitePhotos),
+    );
+  }, [sitePhotos, isAuthenticated, connectedEmail, isUserDataReady]);
+
+  useEffect(() => {
     if (!clients.length) {
       if (selectedClientId) {
         setSelectedClientId("");
@@ -439,6 +488,12 @@ export default function Home() {
       setSelectedClientId(clients[0].id);
     }
   }, [clients, selectedClientId]);
+
+  useEffect(() => {
+    if (!sitePhotoClientId && clients.length > 0) {
+      setSitePhotoClientId(clients[0].id);
+    }
+  }, [clients, sitePhotoClientId]);
 
   useEffect(() => {
     if (!zoomedPhoto) return;
@@ -543,9 +598,45 @@ export default function Home() {
   };
 
   const openPhotoPicker = () => {
-    const input = document.querySelector(
-      "input[type='file'][accept='image/*'][capture='environment']",
-    ) as HTMLInputElement | null;
+    const input = document.getElementById("roomPhotoInput") as HTMLInputElement | null;
+    input?.click();
+  };
+
+  const handleSitePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) {
+      setSitePhotoBase64(null);
+      return;
+    }
+
+    try {
+      if (!selectedFile.type.startsWith("image/")) {
+        throw new Error("Veuillez sélectionner une image.");
+      }
+
+      const compressedBase64 = await compressImageToBase64(selectedFile);
+      if (getDataUrlByteSize(compressedBase64) > MAX_PHOTO_BYTES) {
+        throw new Error(
+          "Photo trop lourde après compression. Choisissez une image plus légère.",
+        );
+      }
+
+      setSitePhotoBase64(compressedBase64);
+      setSitePhotoError("");
+    } catch (error) {
+      const fallbackMessage =
+        error instanceof Error && error.message
+          ? error.message
+          : "La photo n'a pas pu être chargée.";
+      setSitePhotoError(fallbackMessage);
+      setSitePhotoBase64(null);
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const openSitePhotoPicker = () => {
+    const input = document.getElementById("sitePhotoInput") as HTMLInputElement | null;
     input?.click();
   };
 
@@ -726,6 +817,45 @@ export default function Home() {
     setErrorMessage("");
   };
 
+  const handleAddSitePhoto = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const cleanedTitle = sitePhotoTitle.trim();
+    const cleanedNote = sitePhotoNote.trim();
+
+    if (!sitePhotoClientId) {
+      setSitePhotoError("Veuillez choisir un client lié.");
+      return;
+    }
+    if (!cleanedTitle) {
+      setSitePhotoError("Veuillez ajouter un titre.");
+      return;
+    }
+    if (!sitePhotoBase64) {
+      setSitePhotoError("Veuillez ajouter une photo.");
+      return;
+    }
+
+    const newSitePhoto: SitePhoto = {
+      id: crypto.randomUUID(),
+      title: cleanedTitle,
+      note: cleanedNote,
+      clientId: sitePhotoClientId,
+      photoBase64: sitePhotoBase64,
+      createdAt: new Date().toISOString(),
+    };
+
+    setSitePhotos((prevPhotos) => [newSitePhoto, ...prevPhotos]);
+    setSitePhotoTitle("");
+    setSitePhotoNote("");
+    setSitePhotoBase64(null);
+    setSitePhotoError("");
+  };
+
+  const handleDeleteSitePhoto = (id: string) => {
+    setSitePhotos((prevPhotos) => prevPhotos.filter((photo) => photo.id !== id));
+  };
+
   if (accounts.length === 0) {
     return (
       <div className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 sm:py-10">
@@ -879,6 +1009,30 @@ export default function Home() {
           </p>
         </div>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+          <div className="glass-card inline-flex rounded-xl p-1">
+            <button
+              type="button"
+              onClick={() => setActiveView("calculator")}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                activeView === "calculator"
+                  ? "premium-btn"
+                  : "text-blue-100 hover:bg-white/10"
+              }`}
+            >
+              Calculateur
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("sitePhotos")}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                activeView === "sitePhotos"
+                  ? "premium-btn"
+                  : "text-blue-100 hover:bg-white/10"
+              }`}
+            >
+              Photos de chantier
+            </button>
+          </div>
           <p className="glass-card rounded-lg px-4 py-2 text-sm font-medium text-blue-50">
             Connecté : {connectedEmail}
           </p>
@@ -893,7 +1047,8 @@ export default function Home() {
         <p className="mb-6 text-right text-sm text-blue-100/90">
           Données sauvegardées automatiquement
         </p>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+        {activeView === "calculator" ? (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
           <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
             <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
               Calculateur de m²
@@ -1025,6 +1180,7 @@ export default function Home() {
                   Photo de la pièce
                 </p>
                 <input
+                  id="roomPhotoInput"
                   type="file"
                   accept="image/*"
                   capture="environment"
@@ -1147,7 +1303,175 @@ export default function Home() {
               <p className="text-3xl font-bold">{totalSurface.toFixed(2)} m²</p>
             </div>
           </section>
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8">
+            <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                Photos de chantier
+              </h1>
+              <p className="mt-3 text-sm leading-relaxed text-blue-100/90 sm:text-base">
+                Ajoutez vos photos, souvenirs et notes de chantier par client.
+              </p>
+
+              <form onSubmit={handleAddSitePhoto} className="mt-7 space-y-5">
+                <div>
+                  <label
+                    htmlFor="sitePhotoTitle"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Titre
+                  </label>
+                  <input
+                    id="sitePhotoTitle"
+                    type="text"
+                    value={sitePhotoTitle}
+                    onChange={(event) => setSitePhotoTitle(event.target.value)}
+                    placeholder="Ex: Début des travaux"
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="sitePhotoNote"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Note / Souvenir
+                  </label>
+                  <textarea
+                    id="sitePhotoNote"
+                    value={sitePhotoNote}
+                    onChange={(event) => setSitePhotoNote(event.target.value)}
+                    placeholder="Ex: Pose du carrelage terminée."
+                    rows={4}
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="sitePhotoClient"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Client lié
+                  </label>
+                  <select
+                    id="sitePhotoClient"
+                    value={sitePhotoClientId}
+                    onChange={(event) => setSitePhotoClientId(event.target.value)}
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
+                  >
+                    <option value="">-- Sélectionner --</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <p className="mb-1.5 block text-sm font-medium text-blue-50">
+                    Photo du chantier
+                  </p>
+                  <input
+                    id="sitePhotoInput"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleSitePhotoChange}
+                    className="text-sm text-blue-100 file:mr-3 file:rounded-lg file:border file:border-white/30 file:bg-white/20 file:px-3 file:py-2 file:text-blue-50 file:backdrop-blur-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={openSitePhotoPicker}
+                    className="glass-card hover-lift mt-3 rounded-xl px-4 py-2 text-sm font-semibold text-blue-50"
+                  >
+                    Prendre une photo
+                  </button>
+                  {sitePhotoBase64 ? (
+                    <img
+                      src={sitePhotoBase64}
+                      alt="Aperçu chantier"
+                      className="mt-3 h-40 w-full rounded-lg border border-white/35 object-cover"
+                    />
+                  ) : (
+                    <p className="mt-2 text-sm text-blue-100/80">Aucune photo</p>
+                  )}
+                </div>
+
+                {sitePhotoError ? (
+                  <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
+                    {sitePhotoError}
+                  </p>
+                ) : null}
+
+                <button
+                  type="submit"
+                  className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
+                >
+                  Ajouter la photo
+                </button>
+              </form>
+            </section>
+
+            <section className="glass-card hover-lift fade-in-delay rounded-3xl p-6 sm:p-8">
+              <h2 className="text-2xl font-semibold text-white">Galerie de chantier</h2>
+              <p className="mt-2 text-sm text-blue-100/90">
+                Cliquez sur une photo pour l&apos;agrandir.
+              </p>
+
+              {sitePhotos.length === 0 ? (
+                <p className="mt-5 rounded-xl border border-dashed border-white/35 bg-white/10 px-4 py-6 text-sm text-blue-100">
+                  Aucune photo enregistrée pour le moment.
+                </p>
+              ) : (
+                <ul className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {sitePhotos.map((photo) => {
+                    const relatedClient = clients.find(
+                      (client) => client.id === photo.clientId,
+                    );
+                    return (
+                      <li
+                        key={photo.id}
+                        className="hover-lift rounded-xl border border-white/30 bg-white/15 p-3 backdrop-blur-sm"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setZoomedPhoto({ src: photo.photoBase64, name: photo.title })
+                          }
+                          className="w-full"
+                        >
+                          <img
+                            src={photo.photoBase64}
+                            alt={photo.title}
+                            className="zoomable-thumb h-36 w-full rounded-lg border border-white/35 object-cover"
+                          />
+                        </button>
+                        <p className="mt-3 text-base font-semibold text-white">{photo.title}</p>
+                        <p className="mt-1 text-xs text-blue-100/80">
+                          Client : {relatedClient?.name ?? "Client supprimé"}
+                        </p>
+                        {photo.note ? (
+                          <p className="mt-1 text-sm text-blue-100/90">{photo.note}</p>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSitePhoto(photo.id)}
+                          className="mt-3 rounded-lg border border-red-200/50 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-100 transition hover:bg-red-500/20"
+                        >
+                          Supprimer photo
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
+        )}
       </main>
 
       {zoomedPhoto ? (
