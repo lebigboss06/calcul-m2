@@ -269,8 +269,10 @@ function AnimatedStyles() {
 export default function Home() {
   const [activeView, setActiveView] = useState<"calculator" | "sitePhotos">("calculator");
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [showCreateAccountForm, setShowCreateAccountForm] = useState(false);
   const [createEmailInput, setCreateEmailInput] = useState("");
   const [createPasswordInput, setCreatePasswordInput] = useState("");
+  const [createConfirmPasswordInput, setCreateConfirmPasswordInput] = useState("");
   const [loginEmailInput, setLoginEmailInput] = useState("");
   const [loginPasswordInput, setLoginPasswordInput] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -509,6 +511,12 @@ export default function Home() {
   }, [clients, sitePhotoClientId]);
 
   useEffect(() => {
+    if (accounts.length === 0) {
+      setShowCreateAccountForm(true);
+    }
+  }, [accounts.length]);
+
+  useEffect(() => {
     if (!zoomedPhoto) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -676,6 +684,17 @@ export default function Home() {
     [rooms],
   );
 
+  const persistSession = (email: string) => {
+    const sessionPayload = JSON.stringify({ email });
+    if (rememberMe) {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, sessionPayload);
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionPayload);
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  };
+
   const handleAddRoom = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -728,6 +747,7 @@ export default function Home() {
 
     const cleanedEmail = createEmailInput.trim().toLowerCase();
     const cleanedPassword = createPasswordInput;
+    const cleanedConfirmPassword = createConfirmPasswordInput;
 
     if (!cleanedEmail || !cleanedEmail.includes("@")) {
       setAuthError("Veuillez saisir un email valide.");
@@ -738,18 +758,28 @@ export default function Home() {
       return;
     }
     if (accounts.some((account) => account.email === cleanedEmail)) {
-      setAuthError("Un compte existe déjà avec cet email.");
+      setAuthError("Compte déjà existant");
+      return;
+    }
+    if (cleanedPassword !== cleanedConfirmPassword) {
+      setAuthError("Les mots de passe ne correspondent pas.");
       return;
     }
 
     const nextAccounts = [...accounts, { email: cleanedEmail, password: cleanedPassword }];
     setAccounts(nextAccounts);
     window.localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(nextAccounts));
+
+    persistSession(cleanedEmail);
+    setConnectedEmail(cleanedEmail);
+    setIsAuthenticated(true);
+    setShowCreateAccountForm(false);
     setCreateEmailInput("");
     setCreatePasswordInput("");
-    setLoginEmailInput(cleanedEmail);
+    setCreateConfirmPasswordInput("");
+    setLoginEmailInput("");
     setLoginPasswordInput("");
-    setAuthError("Compte créé. Connectez-vous.");
+    setAuthError("");
   };
 
   const handleLogin = (event: FormEvent<HTMLFormElement>) => {
@@ -770,15 +800,7 @@ export default function Home() {
     setIsAuthenticated(true);
     setAuthError("");
     setLoginPasswordInput("");
-
-    const sessionPayload = JSON.stringify({ email: matchedAccount.email });
-    if (rememberMe) {
-      window.localStorage.setItem(SESSION_STORAGE_KEY, sessionPayload);
-      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    } else {
-      window.sessionStorage.setItem(SESSION_STORAGE_KEY, sessionPayload);
-      window.localStorage.removeItem(SESSION_STORAGE_KEY);
-    }
+    persistSession(matchedAccount.email);
   };
 
   const handleLogout = () => {
@@ -889,72 +911,6 @@ export default function Home() {
     setSitePhotos((prevPhotos) => prevPhotos.filter((photo) => photo.id !== id));
   };
 
-  if (accounts.length === 0) {
-    return (
-      <div className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 sm:py-10">
-        <AnimatedBackdrop />
-        <AnimatedStyles />
-        <main className="mx-auto w-full max-w-md">
-          <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
-            <h1 className="text-3xl font-bold tracking-tight text-white">
-              Créer un compte
-            </h1>
-            <p className="mt-2 text-sm text-blue-100/90">
-              Configurez un compte local (email + mot de passe) pour accéder au calculateur.
-            </p>
-
-            <form onSubmit={handleCreateAccount} className="mt-6 space-y-4">
-              <div>
-                <label
-                  htmlFor="createEmail"
-                  className="mb-1.5 block text-sm font-medium text-blue-50"
-                >
-                  Email
-                </label>
-                <input
-                  id="createEmail"
-                  type="email"
-                  value={createEmailInput}
-                  onChange={(event) => setCreateEmailInput(event.target.value)}
-                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="createPassword"
-                  className="mb-1.5 block text-sm font-medium text-blue-50"
-                >
-                  Mot de passe
-                </label>
-                <input
-                  id="createPassword"
-                  type="password"
-                  value={createPasswordInput}
-                  onChange={(event) => setCreatePasswordInput(event.target.value)}
-                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
-                />
-              </div>
-
-              {authError ? (
-                <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
-                  {authError}
-                </p>
-              ) : null}
-
-              <button
-                type="submit"
-                className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
-              >
-                Créer mon compte
-              </button>
-            </form>
-          </section>
-        </main>
-      </div>
-    );
-  }
-
   if (!isAuthenticated) {
     return (
       <div className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 sm:py-10">
@@ -963,67 +919,171 @@ export default function Home() {
         <main className="mx-auto w-full max-w-md">
           <section className="glass-card hover-lift fade-in rounded-3xl p-6 sm:p-8">
             <h1 className="text-3xl font-bold tracking-tight text-white">
-              Connexion
+              {showCreateAccountForm ? "Créer un compte" : "Connexion"}
             </h1>
             <p className="mt-2 text-sm text-blue-100/90">
-              Connectez-vous avec votre email et votre mot de passe.
+              {showCreateAccountForm
+                ? "Créez votre compte local pour accéder au calculateur."
+                : "Connectez-vous avec votre email et votre mot de passe."}
             </p>
 
-            <form onSubmit={handleLogin} className="mt-6 space-y-4">
-              <div>
-                <label
-                  htmlFor="loginEmail"
-                  className="mb-1.5 block text-sm font-medium text-blue-50"
-                >
-                  Email
+            {showCreateAccountForm ? (
+              <form onSubmit={handleCreateAccount} className="mt-6 space-y-4">
+                <div>
+                  <label
+                    htmlFor="createEmail"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="createEmail"
+                    type="email"
+                    value={createEmailInput}
+                    onChange={(event) => setCreateEmailInput(event.target.value)}
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="createPassword"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Mot de passe
+                  </label>
+                  <input
+                    id="createPassword"
+                    type="password"
+                    value={createPasswordInput}
+                    onChange={(event) => setCreatePasswordInput(event.target.value)}
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="createPasswordConfirm"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Confirmer le mot de passe
+                  </label>
+                  <input
+                    id="createPasswordConfirm"
+                    type="password"
+                    value={createConfirmPasswordInput}
+                    onChange={(event) =>
+                      setCreateConfirmPasswordInput(event.target.value)
+                    }
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-blue-100">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                  />
+                  Se souvenir de moi
                 </label>
-                <input
-                  id="loginEmail"
-                  type="email"
-                  value={loginEmailInput}
-                  onChange={(event) => setLoginEmailInput(event.target.value)}
-                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
-                />
-              </div>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="mb-1.5 block text-sm font-medium text-blue-50"
+                {authError ? (
+                  <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
+                    {authError}
+                  </p>
+                ) : null}
+
+                <button
+                  type="submit"
+                  className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
                 >
-                  Mot de passe
+                  Créer mon compte
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleLogin} className="mt-6 space-y-4">
+                <div>
+                  <label
+                    htmlFor="loginEmail"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="loginEmail"
+                    type="email"
+                    value={loginEmailInput}
+                    onChange={(event) => setLoginEmailInput(event.target.value)}
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="mb-1.5 block text-sm font-medium text-blue-50"
+                  >
+                    Mot de passe
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={loginPasswordInput}
+                    onChange={(event) => setLoginPasswordInput(event.target.value)}
+                    className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-blue-100">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                  />
+                  Se souvenir de moi
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={loginPasswordInput}
-                  onChange={(event) => setLoginPasswordInput(event.target.value)}
-                  className="soft-input w-full rounded-xl px-4 py-3 text-slate-900 outline-none transition"
-                />
-              </div>
 
-              <label className="flex items-center gap-2 text-sm text-blue-100">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(event) => setRememberMe(event.target.checked)}
-                />
-                Se souvenir de moi
-              </label>
+                {authError ? (
+                  <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
+                    {authError}
+                  </p>
+                ) : null}
 
-              {authError ? (
-                <p className="rounded-lg border border-red-200/40 bg-red-500/20 px-3 py-2 text-sm font-medium text-red-100">
-                  {authError}
-                </p>
-              ) : null}
+                <button
+                  type="submit"
+                  className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
+                >
+                  Se connecter
+                </button>
+              </form>
+            )}
 
-              <button
-                type="submit"
-                className="premium-btn w-full rounded-xl px-4 py-3 font-semibold active:scale-[0.99]"
-              >
-                Se connecter
-              </button>
-            </form>
+            <div className="mt-4">
+              {showCreateAccountForm ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateAccountForm(false);
+                    setAuthError("");
+                  }}
+                  className="text-sm text-blue-100 underline underline-offset-4 transition hover:text-white"
+                >
+                  J&apos;ai déjà un compte
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateAccountForm(true);
+                    setAuthError("");
+                  }}
+                  className="text-sm text-blue-100 underline underline-offset-4 transition hover:text-white"
+                >
+                  Créer un compte
+                </button>
+              )}
+            </div>
           </section>
         </main>
       </div>
